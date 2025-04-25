@@ -36,6 +36,22 @@ class Driver:
             return None
         return sum(filtered)/len(filtered)
 
+    def lap_delta_sc(self, sc_lap, window=3):
+        before = [
+            lap.time for lap in self.laps
+            if sc_lap - window <= lap.lap_number < sc_lap and not lap.is_safety_car
+        ]
+        after = [
+            lap.time for lap in self.laps
+            if sc_lap < lap.lap_number <= sc_lap + window and not lap.is_safety_car
+        ]
+        if before and after:
+            avg_before = sum(before) / len(before)
+            avg_after = sum(after) / len(after)
+            return avg_after - avg_before
+        return None
+
+
     def __repr__(self):
         return f"<Driver {self.name} ({self.team})>"
 
