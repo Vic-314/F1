@@ -92,8 +92,10 @@ if __name__ == "__main__":
         for _, lap in laps.iterlaps():
             lap_number = int(lap['LapNumber'])
             lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] else None
-            track_status = str(lap.get('TrackStatus', ''))
-            is_sc = track_status in ['1', '4']  # 1 = SC, 4 = VSC
+            sc_messages = session.race_control_messages
+            sc_messages = sc_messages[sc_messages['Message'].str.contains("Safety Car")]
+            print(sc_messages[['Message', 'Time']])
+
 
             if lap_time is not None:
                 driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
