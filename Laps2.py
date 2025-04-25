@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
     # STEP 2: Analyze drivers
     for driver_code in ['HAM', 'VER']:
-        laps = session.laps.pick_driver(driver_code).pick_quicklaps()
+        laps = session.laps.pick_driver(driver_code)
         driver_info = session.get_driver(driver_code)
         driver = Driver(driver_info['FullName'], driver_info['TeamName'])
 
