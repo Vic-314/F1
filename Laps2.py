@@ -106,16 +106,18 @@ if __name__ == "__main__":
         driver_info = session.get_driver(driver_code)
         driver = Driver(driver_info['FullName'], driver_info['TeamName'])
 
-        for _, lap in laps.iterlaps():
-            lap_number = int(lap['LapNumber'])
-            lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] else None
-            lap_start_time = lap['StartTime']
+    for _, lap in laps.iterlaps():
+        lap_number = int(lap['LapNumber'])
+        lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] and lap['LapTime'].total_seconds() > 0 else None
+        lap_start_time = lap.get('StartTime', None)
 
-            # Check if lap is in any SC window
+        # Check if lap is in a valid SC window
+        is_sc = False
+        if lap_start_time is not None:
             is_sc = any(start <= lap_start_time <= end for (start, end) in sc_windows)
 
-            if lap_time is not None:
-                driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
+        if lap_time is not None:
+            driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
 
         race.add_driver(driver)
 
