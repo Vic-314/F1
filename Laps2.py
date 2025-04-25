@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import os
 from datetime import timedelta
 
-# Create cache folder for FastF1 data
 os.makedirs('f1_cache', exist_ok=True)
 fastf1.Cache.enable_cache('f1_cache')
 
@@ -78,7 +77,7 @@ if __name__ == "__main__":
 
     race = Race("Silverstone", session.total_laps)
 
-    # STEP 1: Get safety car windows from race control messages
+    # === STEP 1: Get accurate safety car windows ===
     sc_messages = session.race_control_messages
     sc_messages = sc_messages[sc_messages['Message'].str.contains("SAFETY CAR", case=False, na=False)]
     print("Race Control Messages related to SC:\n", sc_messages[['Message', 'Time']])
@@ -94,7 +93,7 @@ if __name__ == "__main__":
     for start, end in sc_windows:
         print(f"From {start} to {end}")
 
-    # STEP 2: Load lap data and mark SC laps
+    # === STEP 2: Load driver data and flag SC laps based on window timestamps ===
     for driver_code in ['HAM', 'VER']:
         laps = session.laps.pick_driver(driver_code)
         driver_info = session.get_driver(driver_code)
@@ -105,22 +104,21 @@ if __name__ == "__main__":
             lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] and lap['LapTime'].total_seconds() > 0 else None
             lap_start_time = lap.get('StartTime', None)
 
-            # Add fuzzy buffer to capture borderline SC laps
             is_sc = False
             if lap_start_time is not None:
-                is_sc = any(
-                    (start - timedelta(seconds=1)) <= lap_start_time <= (end + timedelta(seconds=1))
-                    for (start, end) in sc_windows
-                )
+                for start, end in sc_windows:
+                    if start <= lap_start_time <= end:
+                        is_sc = True
+                        break
 
             if lap_time is not None:
                 driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
 
         race.add_driver(driver)
 
+    # === STEP 3: Analyze SC impact ===
     print("\n", race)
 
-    # STEP 3: Analyze lap time delta around safety car
     print("\nLap Time Delta Around Safety Car:")
     for driver in race.drivers:
         print(f"\nDriver: {driver.name}")
