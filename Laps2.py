@@ -85,39 +85,40 @@ if __name__ == "__main__":
 
     race = Race("Silverstone", session.total_laps)
 
-    # STEP 1: Get safety car windows
+    # STEP 1: Get safety car windows from race control messages
     sc_messages = session.race_control_messages
     sc_messages = sc_messages[sc_messages['Message'].str.contains("SAFETY CAR", case=False, na=False)]
     print("Race Control Messages related to SC:\n", sc_messages[['Message', 'Time']])
 
-    # Estimate windows (assumes alternating deploy/withdraw)
-    sc_times = sc_messages['Time'].tolist()
+    deploy_times = sc_messages[sc_messages['Message'].str.contains("DEPLOYED", case=False, na=False)]['Time'].tolist()
+    withdraw_times = sc_messages[sc_messages['Message'].str.contains("IN THIS LAP", case=False, na=False)]['Time'].tolist()
+
     sc_windows = []
-    for i in range(0, len(sc_times) - 1, 2):
-        sc_windows.append((sc_times[i], sc_times[i + 1]))
+    for i in range(min(len(deploy_times), len(withdraw_times))):
+        sc_windows.append((deploy_times[i], withdraw_times[i]))
 
     print("\nEstimated Safety Car Windows:")
     for start, end in sc_windows:
         print(f"From {start} to {end}")
 
-    # STEP 2: Analyze drivers
+    # STEP 2: Load lap data and mark SC laps
     for driver_code in ['HAM', 'VER']:
         laps = session.laps.pick_driver(driver_code)
         driver_info = session.get_driver(driver_code)
         driver = Driver(driver_info['FullName'], driver_info['TeamName'])
 
-    for _, lap in laps.iterlaps():
-        lap_number = int(lap['LapNumber'])
-        lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] and lap['LapTime'].total_seconds() > 0 else None
-        lap_start_time = lap.get('StartTime', None)
+        for _, lap in laps.iterlaps():
+            lap_number = int(lap['LapNumber'])
+            lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] and lap['LapTime'].total_seconds() > 0 else None
+            lap_start_time = lap.get('StartTime', None)
 
-        # Check if lap is in a valid SC window
-        is_sc = False
-        if lap_start_time is not None:
-            is_sc = any(start <= lap_start_time <= end for (start, end) in sc_windows)
+            # Flag if lap is during a safety car window
+            is_sc = False
+            if lap_start_time is not None:
+                is_sc = any(start <= lap_start_time <= end for (start, end) in sc_windows)
 
-        if lap_time is not None:
-            driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
+            if lap_time is not None:
+                driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
 
         race.add_driver(driver)
 
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     sc_laps = race.get_safety_car_laps()
     print("Safety Car Laps (by lap number):", sc_laps)
 
-    # STEP 3: Compute lap time delta around SC
+    # STEP 3: Analyze lap time delta around SC
     print("\nLap Time Delta Around Safety Car:")
     for driver in race.drivers:
         print(f"\nDriver: {driver.name}")
