@@ -2,6 +2,7 @@
 import fastf1
 import matplotlib.pyplot as plt
 import os
+from datetime import timedelta
 
 # Create cache folder for FastF1 data
 os.makedirs('f1_cache', exist_ok=True)
@@ -67,14 +68,6 @@ class Race:
     def add_driver(self, driver):
         self.drivers.append(driver)
 
-    def get_safety_car_laps(self):
-        sc_laps = set()
-        for driver in self.drivers:
-            for lap in driver.laps:
-                if lap.is_safety_car:
-                    sc_laps.add(lap.lap_number)
-        return sorted(list(sc_laps))
-
     def __repr__(self):
         return f"<Race at {self.track_name}, {self.total_laps} laps>"
 
@@ -112,10 +105,13 @@ if __name__ == "__main__":
             lap_time = lap['LapTime'].total_seconds() if lap['LapTime'] and lap['LapTime'].total_seconds() > 0 else None
             lap_start_time = lap.get('StartTime', None)
 
-            # Flag if lap is during a safety car window
+            # Add fuzzy buffer to capture borderline SC laps
             is_sc = False
             if lap_start_time is not None:
-                is_sc = any(start <= lap_start_time <= end for (start, end) in sc_windows)
+                is_sc = any(
+                    (start - timedelta(seconds=1)) <= lap_start_time <= (end + timedelta(seconds=1))
+                    for (start, end) in sc_windows
+                )
 
             if lap_time is not None:
                 driver.add_lap(LapData(lap_number, lap_time, is_safety_car=is_sc))
@@ -123,17 +119,18 @@ if __name__ == "__main__":
         race.add_driver(driver)
 
     print("\n", race)
-    sc_laps = race.get_safety_car_laps()
-    print("Safety Car Laps (by lap number):", sc_laps)
 
-    # STEP 3: Analyze lap time delta around SC
+    # STEP 3: Analyze lap time delta around safety car
     print("\nLap Time Delta Around Safety Car:")
     for driver in race.drivers:
         print(f"\nDriver: {driver.name}")
+        sc_laps = [lap.lap_number for lap in driver.laps if lap.is_safety_car]
+        print(f"  SC laps flagged for this driver: {sc_laps}")
+
         for sc_lap in sc_laps:
             delta = driver.lap_delta_sc(sc_lap, window=3)
             if delta is not None:
                 sign = "+" if delta > 0 else "-"
-                print(f"  SC Lap {sc_lap}: Δ = {sign}{abs(delta):.2f} sec (Post - Pre)")
+                print(f"    SC Lap {sc_lap}: Δ = {sign}{abs(delta):.2f} sec (Post - Pre)")
             else:
-                print(f"  SC Lap {sc_lap}: Not enough data")
+                print(f"    SC Lap {sc_lap}: Not enough data")
